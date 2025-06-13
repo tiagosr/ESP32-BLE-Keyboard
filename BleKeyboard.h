@@ -1,5 +1,5 @@
 // uncomment the following line to use NimBLE library
-//#define USE_NIMBLE
+#define USE_NIMBLE
 
 #ifndef ESP32_BLE_KEYBOARD_H
 #define ESP32_BLE_KEYBOARD_H
@@ -8,8 +8,10 @@
 
 #if defined(USE_NIMBLE)
 
+#include "NimBLEServer.h"
 #include "NimBLECharacteristic.h"
 #include "NimBLEHIDDevice.h"
+#include "NimBLEAdvertising.h"
 
 #define BLEDevice                  NimBLEDevice
 #define BLEServerCallbacks         NimBLEServerCallbacks
@@ -19,10 +21,14 @@
 #define BLEAdvertising             NimBLEAdvertising
 #define BLEServer                  NimBLEServer
 
+#define BLE_OVERRIDE
+
 #else
 
 #include "BLEHIDDevice.h"
 #include "BLECharacteristic.h"
+
+#define BLE_OVERRIDE override
 
 #endif // USE_NIMBLE
 
@@ -138,8 +144,8 @@ private:
   BLEAdvertising*    advertising;
   KeyReport          _keyReport;
   MediaKeyReport     _mediaKeyReport;
-  std::string        deviceName;
-  std::string        deviceManufacturer;
+  String        deviceName;
+  String        deviceManufacturer;
   uint8_t            batteryLevel;
   bool               connected = false;
   uint32_t           _delay_ms = 7;
@@ -150,7 +156,7 @@ private:
   uint16_t version   = 0x0210;
 
 public:
-  BleKeyboard(std::string deviceName = "ESP32 Keyboard", std::string deviceManufacturer = "Espressif", uint8_t batteryLevel = 100);
+  BleKeyboard(const char* deviceName = "ESP32 Keyboard", const char* deviceManufacturer = "Espressif", uint8_t batteryLevel = 100);
   void begin(void);
   void end(void);
   void sendReport(KeyReport* keys);
@@ -165,7 +171,7 @@ public:
   void releaseAll(void);
   bool isConnected(void);
   void setBatteryLevel(uint8_t level);
-  void setName(std::string deviceName);  
+  void setName(String deviceName);  
   void setDelay(uint32_t ms);
 
   void set_vendor_id(uint16_t vid);
@@ -173,10 +179,21 @@ public:
   void set_version(uint16_t version);
 protected:
   virtual void onStarted(BLEServer *pServer) { };
-  virtual void onConnect(BLEServer* pServer) override;
-  virtual void onDisconnect(BLEServer* pServer) override;
-  virtual void onWrite(BLECharacteristic* me) override;
+  virtual void onConnect(BLEServer* pServer) BLE_OVERRIDE;
+  virtual void onDisconnect(BLEServer* pServer) BLE_OVERRIDE;
+  virtual void onWrite(BLECharacteristic* me) BLE_OVERRIDE;
 
+#if defined(USE_NIMBLE)
+  virtual void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override {
+    this->onConnect((BLEServer*)pServer);
+  }
+  virtual void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override {
+    this->onDisconnect((BLEServer*)pServer);
+  }
+  virtual void onWrite(NimBLECharacteristic* me, NimBLEConnInfo& connInfo) override {
+    this->onWrite((BLECharacteristic*)me);
+  }
+#endif // USE_NIMBLE
 };
 
 #endif // CONFIG_BT_ENABLED
